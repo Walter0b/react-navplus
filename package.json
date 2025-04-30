@@ -1,0 +1,42 @@
+{
+  "name": "react-navplus",
+  "version": "2.0.0",
+  "description": "A customizable NavLink component for React.js",
+  "main": "dist/NavLink.js",
+  "types": "dist/NavLink.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": [
+    "navigation",
+    "react",
+    "link",
+    "navlink"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Walter0b/react-navplus.git"
+  },
+  "author": "WalterOb",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": "^17.0.0 || ^18.0.0",
+    "react-dom": "^17.0.0 || ^18.0.0",
+    "react-router-dom": "^6.0.0 || ^7.0.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/react": "^18.3.3",
+    "react": "^18.3.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^4.9.5"
+  },
+  "dependencies": {
+    "react-router-dom": "^6.0.0 || ^7.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ]
+}

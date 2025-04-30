@@ -1,0 +1,19 @@
+# Exclude test files
+**/*.test.js
+**/*.test.ts
+**/*.spec.js
+**/*.spec.ts
+**/*.test.d.ts
+jest.setup.js
+jest.setup.d.ts
+jest.config.ts               
+jest.setup.ts  
+bun.lockb    
+.github/workflows/publish.yml
+*.py     
+/src
+tsconfig.json  
+.git
+node_modules
+.DS_Store
+*.tgz
