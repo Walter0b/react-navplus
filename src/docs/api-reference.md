@@ -11,7 +11,7 @@ Detailed reference for all public APIs in **NavPlus**.
 A flexible, accessible navigation link component that works with multiple router libraries and supports active-state detection, prefetching, external/disabled links, custom rendering, ARIA attributes, styling, and more.
 
 ```tsx
-import { NavPlus } from 'pure-navlink';
+import { NavPlus } from 'react-navplus';
 ```
 
 #### Props
@@ -54,7 +54,7 @@ import { NavPlus } from 'pure-navlink';
 A convenience wrapper for **React Router v6** that auto-injects `location` and `navigate` from React Router’s hooks.
 
 ```tsx
-import { RouterNavLink } from 'pure-navlink';
+import { RouterNavLink } from 'react-navplus';
 ```
 
 #### Props
@@ -120,7 +120,7 @@ type NavLinkChildren =
 
 ## Hooks
 
-> These hooks are also available under `pure-navlink/src/hooks/`
+> These hooks are also available under `react-navplus/src/hooks/`
 
 ### `useIsActive`
 
@@ -172,7 +172,7 @@ function usePrefetch(
 
 ## Utilities
 
-> Exposed under `pure-navlink/src/utils/`
+> Exposed under `react-navplus/src/utils/`
 
 ### `matchers`
 

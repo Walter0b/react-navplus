@@ -58,19 +58,19 @@ A flexible, accessible, and framework-agnostic navigation link component for Rea
 Using npm:
 
 ```bash
-npm install pure-navlink
+npm install react-navplus
 ```
 
 Using Yarn:
 
 ```bash
-yarn add pure-navlink
+yarn add react-navplus
 ```
 
 Using Bun:
 
 ```bash
-bun add pure-navlink
+bun add react-navplus
 ```
 
 ---
@@ -81,7 +81,7 @@ bun add pure-navlink
 
 ```tsx
 import React from 'react';
-import { NavPlus } from 'pure-navlink';
+import { NavPlus } from 'react-navplus';
 
 const Nav = () => (
   <nav>
@@ -102,7 +102,7 @@ If you’re using React Router v6, you can skip passing in `location` and `navig
 
 ```tsx
 import React from 'react';
-import { RouterNavLink } from 'pure-navlink';
+import { RouterNavLink } from 'react-navplus';
 
 const Nav = () => (
   <nav>

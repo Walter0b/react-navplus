@@ -37,13 +37,13 @@ Choose your package manager:
 
 ```bash
 # npm
-npm install pure-navlink
+npm install react-navplus
 
 # yarn
-yarn add pure-navlink
+yarn add react-navplus
 
 # bun
-bun add pure-navlink
+bun add react-navplus
 ```
 
 ---
@@ -54,7 +54,7 @@ Render a basic link that highlights when the URL contains `/home`:
 
 ```tsx
 import React from 'react';
-import { NavPlus } from 'pure-navlink';
+import { NavPlus } from 'react-navplus';
 
 export function AppNav() {
   return (
@@ -77,7 +77,7 @@ To avoid manually passing in `location` and `navigate`, use the `<RouterNavLink>
 
 ```tsx
 import React from 'react';
-import { RouterNavLink } from 'pure-navlink';
+import { RouterNavLink } from 'react-navplus';
 
 export function Sidebar() {
   return (
