@@ -1,9 +1,10 @@
 {
   "name": "react-navplus",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "A customizable NavLink component for React.js",
-  "main": "dist/NavLink.js",
-  "types": "dist/NavLink.d.ts",
+  "main": "dist/index.js",         
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc"
   },
