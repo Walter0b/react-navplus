@@ -1,340 +1,276 @@
 /**
  * @file NavPlus.tsx
- * @description A flexible and accessible navigation link component that can be used with multiple router libraries,
- * supporting various active state detection methods, prefetching, and rendering options.
- * @author Original author + Enhanced by Claude
- * @version 1.1.0
+ * @description A clean, flexible navigation link component
+ * @version 2.1.0
  */
 
-import React, { useRef, useEffect, useCallback, useMemo } from 'react';
-import { Link, LinkProps, useNavigate } from 'react-router-dom';
-import { useIsActive } from './hooks/useIsActive';
-import { usePrefetch } from './hooks/usePrefetch';
-import { useNavLinkContext } from './context/NavContext';
-import { NavPlusProps } from './types';
+import React, { useMemo, useCallback, useRef } from 'react';
+import { Link } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+
+// Types
+export type MatchMode = 'exact' | 'startsWith' | 'includes' | 'pattern';
+
+export interface NavPlusProps {
+  to: string;
+  children: React.ReactNode | ((isActive: boolean) => React.ReactNode);
+  className?: string;
+  activeClassName?: string;
+  inActiveClassName?: string;
+  activeStyle?: React.CSSProperties;
+  inactiveStyle?: React.CSSProperties;
+  disabled?: boolean;
+  isExternal?: boolean;
+  matchMode?: MatchMode;
+  matchPattern?: RegExp;
+  customActiveUrl?: string;
+  prefetch?: boolean;
+  replace?: boolean;
+  triggerEvent?: 'click' | 'hover';
+  navigationDelay?: number;
+  onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
+  onMouseEnter?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
+  onMouseLeave?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
+  as?: React.ElementType;
+  testId?: string;
+  linkProps?: Record<string, any>;
+  [key: string]: any;
+}
+
+// Utility functions
+const matchers = {
+  exact: (pathname: string, url: string) => pathname === url,
+  startsWith: (pathname: string, url: string) => pathname.startsWith(url),
+  includes: (pathname: string, url: string) => pathname.includes(url),
+  pattern: (pathname: string, _url: string, pattern?: RegExp) => pattern ? pattern.test(pathname) : false
+};
 
 /**
- * NavPlus Component - A flexible navigation link component with active state detection
- * that works with multiple router libraries.
- * 
- * @component
- * @example
- * // Basic usage with React Router
- * <NavPlus to="/home">Home</NavPlus>
- * 
- * @example
- * // With active state function as children
- * <NavPlus to="/dashboard" matchMode="exact">
- *   {isActive => isActive ? <strong>Dashboard</strong> : 'Dashboard'}
- * </NavPlus>
- * 
- * @example
- * // With prefetching enabled
- * <NavPlus to="/products" prefetch={true}>Products</NavPlus>
- * 
- * @example
- * // With custom prefetch options
- * <NavPlus 
- *   to="/blog"
- *   prefetch={{
- *     enabled: true,
- *     delay: 100,
- *     routerType: 'tanstack-router'
- *   }}
- * >
- *   Blog
- * </NavPlus>
- * 
- * @example
- * // External link
- * <NavPlus to="https://example.com" isExternal>External Link</NavPlus>
- * 
- * @example
- * // Disabled link
- * <NavPlus to="/settings" disabled>Settings</NavPlus>
+ * Determine if a link is active based on the current pathname, URL, and match mode.
+ * @param {string} pathname - Current pathname
+ * @param {string} url - URL to match against
+ * @param {MatchMode} [matchMode='includes'] - How to match the URL
+ * @param {RegExp} [matchPattern] - Optional regex pattern for matching
+ * @returns {boolean} - Whether the link is active
+ */
+const isActive = (
+  pathname: string,
+  url: string,
+  matchMode: MatchMode = 'includes',
+  matchPattern?: RegExp
+): boolean => {
+  const matchFn = matchers[matchMode] || matchers.includes;
+  return matchFn(pathname, url, matchPattern);
+};
+
+const buildClassName = (
+  baseClassName: string,
+  isActive: boolean,
+  activeClassName: string,
+  inActiveClassName: string
+): string => {
+  const classes = [
+    baseClassName,
+    isActive ? activeClassName : inActiveClassName,
+    'navplus-link'
+  ].filter(Boolean);
+  return classes.join(' ').trim();
+};
+
+// Simple prefetch implementation
+const prefetchCache = new Set<string>();
+
+const simplePrefetch = (url: string): void => {
+  if (prefetchCache.has(url) || typeof window === 'undefined') return;
+
+  try {
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.href = url;
+    document.head.appendChild(link);
+    prefetchCache.add(url);
+  } catch (error) {
+    console.warn('Prefetch failed:', error);
+  }
+};
+
+/**
+ * NavPlus Component - A flexible navigation link component
  */
 export const NavPlus = React.memo<NavPlusProps>(({
   to,
   children,
-  location,
-  navigate: navigateProp,
-  redirection = true,
-  id,
-  inActiveClassName = '',
   className = '',
   activeClassName = 'active',
-  onClick,
+  inActiveClassName = '',
+  disabled = false,
+  isExternal = false,
   matchMode = 'includes',
   matchPattern,
-  replace = false,
-  isExternal = false,
-  aria = {},
-  testId,
-  disabled = false,
+  customActiveUrl,
   activeStyle,
   inactiveStyle,
-  customActiveUrl,
-  linkProps = {},
-  isActiveFunc,
-  navigationDelay,
-  triggerEvent = 'click',
   prefetch = false,
-  as,
-  routerContext: propRouterContext,
+  replace = false,
+  triggerEvent = 'click',
+  navigationDelay,
+  onClick,
+  onMouseEnter,
+  onMouseLeave,
+  as: Component,
+  testId,
+  linkProps = {},
   ...restProps
-}: NavPlusProps) => {
+}) => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const timeoutRef = useRef<NodeJS.Timeout>();
 
-  // Get context values
-  const context = useNavLinkContext();
-
-  // Refs for timeouts
-  const navigationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const linkRef = useRef<HTMLAnchorElement | null>(null);
-
-  // Combine router context from props and context
-  const routerContext = propRouterContext || context.routerContext;
-
-  // Try to get navigate from props or context if not provided directly
-  const navigate = navigateProp || routerContext?.navigate;
-
-  // Early return for invalid 'to' prop
+  // Early validation
   if (!to) {
     if (process.env.NODE_ENV !== 'production') {
-      console.warn('NavPlus: "to" prop is required and should not be empty');
+      console.warn('NavPlus: "to" prop is required');
     }
     return null;
   }
 
-  // Determine if the link is active
-  const isActive = useIsActive(to, {
-    location: location || routerContext?.location,
-    matchMode,
-    matchPattern,
-    customActiveUrl,
-    isActiveFunc
-  });
+  // Determine if link is active
+  const linkIsActive = useMemo(() => {
+    if (!location?.pathname) return false;
+    const urlToMatch = customActiveUrl || to;
+    return isActive(location.pathname, urlToMatch, matchMode, matchPattern);
+  }, [location?.pathname, customActiveUrl, to, matchMode, matchPattern]);
 
-  // Handle prefetching
-  const { isPrefetched, handlePrefetch, cancelPrefetch } = usePrefetch(to, {
-    prefetch,
-    isExternal,
-    redirection,
-    disabled,
-    routerContext
-  });
+  // Handle navigation with optional delay
+  const handleNavigation = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    if (disabled || isExternal) return;
 
-  // Ensure the component cleans up any timeouts when unmounting
-  useEffect(() => {
-    return () => {
-      if (navigationTimeoutRef.current) {
-        clearTimeout(navigationTimeoutRef.current);
-      }
-    };
-  }, []);
+    e.preventDefault();
 
-  /**
-   * Handle navigation based on the navigationDelay
-   */
-  const navigateWithDelay = useCallback((targetUrl: string, shouldReplace = false) => {
-    if (!navigate) return;
-
-    if (navigationTimeoutRef.current) {
-      clearTimeout(navigationTimeoutRef.current);
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
     }
+
+    const navigateToUrl = () => navigate(to, { replace });
 
     if (navigationDelay && navigationDelay > 0) {
-      navigationTimeoutRef.current = setTimeout(() => {
-        navigate(targetUrl, { replace: shouldReplace });
-      }, navigationDelay);
+      timeoutRef.current = setTimeout(navigateToUrl, navigationDelay);
     } else {
-      navigate(targetUrl, { replace: shouldReplace });
+      navigateToUrl();
     }
-  }, [navigate, navigationDelay]);
+  }, [disabled, isExternal, navigate, to, replace, navigationDelay]);
 
-  /**
-   * Click handler that uses the passed navigate function
-   */
-  const handleClick = useCallback((e: React.MouseEvent<HTMLElement>) => {
+  // Event handlers
+  const handleClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
     if (disabled) {
       e.preventDefault();
       return;
     }
 
-    // Call user-provided onClick handler
-    if (onClick) {
-      onClick(e);
-    }
+    onClick?.(e);
 
-    // Handle navigation if not external and redirection is enabled
-    if (!isExternal && redirection && navigate && !e.defaultPrevented) {
-      e.preventDefault();
-      navigateWithDelay(to, replace);
+    if (triggerEvent === 'click' && !e.defaultPrevented) {
+      handleNavigation(e);
     }
-  }, [disabled, onClick, isExternal, redirection, navigate, to, replace, navigateWithDelay]);
+  }, [disabled, onClick, triggerEvent, handleNavigation]);
 
-  /**
-   * Mouse enter handler for hover navigation or prefetching
-   */
-  const handleMouseEnter = useCallback((e: React.MouseEvent<HTMLElement>) => {
-    // Handle prefetching
-    handlePrefetch();
+  const handleMouseEnterEvent = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
+    // Handle prefetch
+    if (prefetch && !isExternal && !disabled) {
+      simplePrefetch(to);
+    }
 
     // Handle hover navigation
-    if (triggerEvent === 'hover' && !disabled && redirection && navigate) {
-      e.preventDefault();
-      navigateWithDelay(to, replace);
+    if (triggerEvent === 'hover') {
+      handleNavigation(e);
     }
 
-    // Call user-provided onMouseEnter
-    if (restProps.onMouseEnter) {
-      restProps.onMouseEnter(e as React.MouseEvent<HTMLAnchorElement>);
-    }
-  }, [
-    handlePrefetch,
-    triggerEvent,
-    disabled,
-    redirection,
-    navigate,
-    to,
-    replace,
-    navigateWithDelay,
-    restProps
-  ]);
+    onMouseEnter?.(e);
+  }, [prefetch, isExternal, disabled, to, triggerEvent, handleNavigation, onMouseEnter]);
 
-  /**
-   * Mouse leave handler to cancel prefetching
-   */
-  const handleMouseLeave = useCallback((e: React.MouseEvent<HTMLElement>) => {
-    // Cancel prefetching
-    cancelPrefetch();
+  const handleMouseLeaveEvent = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
+    onMouseLeave?.(e);
+  }, [onMouseLeave]);
 
-    // Call user-provided onMouseLeave
-    if (restProps.onMouseLeave) {
-      restProps.onMouseLeave(e as React.MouseEvent<HTMLAnchorElement>);
-    }
-  }, [cancelPrefetch, restProps]);
+  // Computed props
+  const computedClassName = useMemo(() =>
+    buildClassName(className, linkIsActive, activeClassName, inActiveClassName),
+    [className, linkIsActive, activeClassName, inActiveClassName]
+  );
 
-  /**
-   * Build up the className based on active state and provided classes
-   */
-  const computedClassName = useMemo(() => {
-    const classes = [
-      className,
-      isActive ? activeClassName : inActiveClassName,
-      'pure-nav-link' // Base class for styling
-    ].filter(Boolean);
-    return classes.join(' ').trim();
-  }, [className, isActive, activeClassName, inActiveClassName]);
+  const computedStyle = useMemo(() =>
+    linkIsActive ? activeStyle : inactiveStyle,
+    [linkIsActive, activeStyle, inactiveStyle]
+  );
 
-  /**
-   * Decide how to render children based on whether it's a function or React element
-   */
-  const renderChildren = useMemo(() => {
-    if (typeof children === 'function') {
-      return children(isActive);
-    }
-
-    if (React.isValidElement(children) && typeof children.type !== 'string') {
-      return React.cloneElement(
-        children,
-        children.props ? { ...children.props, isActive } : { isActive }
-      );
-    }
-
-    return children;
-  }, [children, isActive]);
-
-  /**
-   * Computed ARIA attributes for better accessibility
-   */
-  const computedAria = useMemo(() => {
-    const ariaAttrs = { ...aria };
-
-    // Add current attribute for active links (for screen readers)
-    if (isActive) {
-      ariaAttrs['aria-current'] = 'page';
-    }
-
-    // Add disabled attribute
-    if (disabled) {
-      ariaAttrs['aria-disabled'] = true;
-    }
-
-    return ariaAttrs;
-  }, [aria, isActive, disabled]);
-
-  /**
-   * Common props for the final element
-   */
   const commonProps = useMemo(() => ({
-    id,
     className: computedClassName,
-    onClick: triggerEvent === 'click' ? handleClick : undefined,
-    onMouseEnter: handleMouseEnter,
-    onMouseLeave: handleMouseLeave,
-    ref: linkRef,
-    style: isActive ? activeStyle : inactiveStyle,
+    style: computedStyle,
+    onClick: handleClick,
+    onMouseEnter: handleMouseEnterEvent,
+    onMouseLeave: handleMouseLeaveEvent,
     'data-testid': testId,
-    'data-active': isActive ? 'true' : 'false',
-    'data-prefetched': isPrefetched ? 'true' : 'false',
-    ...computedAria,
+    'data-active': linkIsActive,
+    'aria-current': linkIsActive ? 'page' as 'page' : undefined,
+    'aria-disabled': disabled,
     ...restProps
   }), [
-    id,
     computedClassName,
-    triggerEvent,
+    computedStyle,
     handleClick,
-    handleMouseEnter,
-    handleMouseLeave,
-    isActive,
-    activeStyle,
-    inactiveStyle,
+    handleMouseEnterEvent,
+    handleMouseLeaveEvent,
     testId,
-    isPrefetched,
-    computedAria,
+    linkIsActive,
+    disabled,
     restProps
   ]);
 
-  // If a custom component type is specified, use that
-  if (as) {
-    const Component = as;
+  // Render children
+  const renderChildren = useMemo(() => {
+    if (typeof children === 'function') {
+      return children(linkIsActive);
+    }
+    return children;
+  }, [children, linkIsActive]);
+
+  // Cleanup timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Render based on conditions
+  if (Component) {
     return (
-      <Component
-        {...commonProps}
-        {...(redirection && !disabled ? { href: to } : {})}
-      >
+      <Component {...commonProps} href={to}>
         {renderChildren}
       </Component>
     );
   }
 
-  // If it's disabled or there's no redirection, render a span
-  if (!redirection || disabled) {
+  if (disabled) {
     return <span {...commonProps}>{renderChildren}</span>;
   }
 
-  // If it's an external link, render an anchor
   if (isExternal) {
     return (
       <a
+        {...commonProps}
         href={to}
         target="_blank"
         rel="noopener noreferrer"
-        {...commonProps}
       >
         {renderChildren}
       </a>
     );
   }
 
-  // Otherwise, render a React Router Link
   return (
-    <Link
-      to={to}
-      replace={replace}
-      {...commonProps}
-      {...linkProps}
-    >
+    <Link to={to} replace={replace} {...commonProps} {...linkProps}>
       {renderChildren}
     </Link>
   );
@@ -342,26 +278,5 @@ export const NavPlus = React.memo<NavPlusProps>(({
 
 NavPlus.displayName = 'NavPlus';
 
-/**
- * Wrapper component that injects router context automatically
- * This makes it easier to use NavPlus without manually passing router props
- */
-export const RouterNavLink: React.FC<Omit<NavPlusProps, 'location' | 'navigate'>> = (props) => {
-  // We'll try to use React Router hooks if available
-  let routerContext: any = {};
-
-  try {
-    // Import from React Router dynamically if needed
-    const navigate = useNavigate();
-    routerContext.navigate = navigate;
-  } catch (error) {
-    // React Router hooks not available or not in context
-    if (process.env.NODE_ENV !== 'production') {
-      console.debug('RouterNavLink: React Router hooks not available');
-    }
-  }
-
-  return <NavPlus {...props} routerContext={routerContext} />;
-};
-
-RouterNavLink.displayName = 'RouterNavLink';
+// Export everything
+export default NavPlus;

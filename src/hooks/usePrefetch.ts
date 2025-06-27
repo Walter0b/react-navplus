@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { PrefetchOptions, RouterType } from '../types';
+import { PrefetchOptions } from '../types';
 import { normalizePrefetchOptions, executePrefetch } from '../utils/prefetch';
 
 /**

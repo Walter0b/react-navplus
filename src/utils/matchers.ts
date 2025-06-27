@@ -8,7 +8,7 @@ export const matchers = new Map<MatchMode, (pathname: string, url: string, patte
     ['exact', (pathname, url) => pathname === url],
     ['startsWith', (pathname, url) => pathname.startsWith(url)],
     ['includes', (pathname, url) => pathname.includes(url)],
-    ['pattern', (pathname, url, pattern) => pattern ? pattern.test(pathname) : false]
+    ['pattern', (pathname, _url, pattern) => pattern ? pattern.test(pathname) : false]
 ]);
 
 /**

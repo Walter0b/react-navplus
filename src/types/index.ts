@@ -86,9 +86,9 @@ export interface RouterContext {
  * NavLink context value interface
  */
 export interface NavLinkContextValue {
-    activeMatchers?: Map<MatchMode, (pathname: string, url: string, pattern?: RegExp) => boolean>;
-    prefetchDefaults?: PrefetchOptions;
-    routerContext?: RouterContext;
+    activeMatchers: Map<MatchMode, (pathname: string, url: string, pattern?: RegExp) => boolean>;
+    prefetchDefaults: PrefetchOptions;
+    routerContext: RouterContext | undefined;
 }
 
 /**

@@ -11,24 +11,117 @@ export const defaultPrefetchOptions: PrefetchOptions = {
 
 /**
  * Normalized prefetch options from prop
- * @param {boolean | PrefetchOptions | undefined} prefetch - The prefetch prop value
- * @returns {PrefetchOptions} - Normalized prefetch options
+ * Fixed: Avoid spread syntax that requires tslib helpers
  */
 export const normalizePrefetchOptions = (prefetch: boolean | PrefetchOptions | undefined): PrefetchOptions => {
     if (typeof prefetch === 'boolean') {
-        return { ...defaultPrefetchOptions, enabled: prefetch };
+        return {
+            ...defaultPrefetchOptions,
+            enabled: prefetch
+        };
     }
-    return { ...defaultPrefetchOptions, ...prefetch };
+    if (!prefetch) {
+        return { ...defaultPrefetchOptions };
+    }
+    return {
+        ...defaultPrefetchOptions,
+        ...prefetch
+    };
+};
+
+/**
+ * Cache for created prefetch links to avoid duplicates
+ */
+const prefetchCache = new Set<string>();
+
+/**
+ * Creates a prefetch link element
+ */
+const createPrefetchLink = (url: string, rel: string, as?: string): HTMLLinkElement | null => {
+    const cacheKey = `${rel}:${url}`;
+
+    if (prefetchCache.has(cacheKey)) {
+        return null;
+    }
+
+    const link = document.createElement('link');
+    link.rel = rel;
+    link.href = url;
+    if (as) {
+        link.setAttribute('as', as);
+    }
+
+    prefetchCache.add(cacheKey);
+    document.head.appendChild(link);
+
+    return link;
+};
+
+/**
+ * Basic prefetch implementation using link prefetch
+ */
+const basicPrefetch = (url: string): void => {
+    try {
+        createPrefetchLink(url, 'prefetch', 'document');
+
+        const urlObj = new URL(url, window.location.origin);
+        createPrefetchLink(urlObj.origin, 'preconnect');
+    } catch (error) {
+        if (process.env.NODE_ENV !== 'production') {
+            console.warn('Basic prefetch failed:', error);
+        }
+    }
+};
+
+/**
+ * React Router specific prefetch implementation
+ */
+const prefetchReactRouter = (url: string, routerContext?: any): void => {
+    basicPrefetch(url);
+
+    if (routerContext?.preloadRoute) {
+        try {
+            routerContext.preloadRoute(url);
+        } catch (error) {
+            if (process.env.NODE_ENV !== 'production') {
+                console.debug('Router preload failed, falling back to basic prefetch');
+            }
+        }
+    }
+};
+
+/**
+ * TanStack Router specific prefetch implementation
+ */
+const prefetchTanStackRouter = (url: string, routerContext?: any): boolean => {
+    if (routerContext?.router?.preloadRoute) {
+        try {
+            routerContext.router.preloadRoute({ to: url });
+            return true;
+        } catch (error) {
+            if (process.env.NODE_ENV !== 'production') {
+                console.debug('TanStack Router context prefetch failed:', error);
+            }
+        }
+    }
+
+    if (typeof window !== 'undefined' && (window as any).TanStackRouter?.router?.preloadRoute) {
+        try {
+            (window as any).TanStackRouter.router.preloadRoute({ to: url });
+            return true;
+        } catch (error) {
+            if (process.env.NODE_ENV !== 'production') {
+                console.debug('TanStack Router global prefetch failed:', error);
+            }
+        }
+    }
+
+    basicPrefetch(url);
+    return false;
 };
 
 /**
  * Implementation of prefetch logic for different router libraries
- * @param {string} url - The URL to prefetch
- * @param {RouterType} routerType - The router library to use
- * @param {boolean} isExternal - Whether the URL is external
- * @param {any} routerContext - Router context for accessing router instance
- * @param {(to: string) => void} [customPrefetch] - Custom prefetch function
- * @returns {boolean} - Whether the prefetch was successful
  */
 export const executePrefetch = (
     url: string,
@@ -37,75 +130,43 @@ export const executePrefetch = (
     routerContext?: any,
     customPrefetch?: (to: string) => void
 ): boolean => {
-    // For external URLs, we can't prefetch
     if (isExternal) return false;
 
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+        return false;
+    }
+
     if (routerType === 'custom' && customPrefetch) {
-        // Use custom prefetch function if provided
-        customPrefetch(url);
-        return true;
+        try {
+            customPrefetch(url);
+            return true;
+        } catch (error) {
+            if (process.env.NODE_ENV !== 'production') {
+                console.error('Custom prefetch failed:', error);
+            }
+            return false;
+        }
     }
 
     try {
         switch (routerType) {
-            case 'react-router': {
-                // React Router v6 prefetching
-                // This is a simple implementation - React Router doesn't have official prefetching
-                // but we can preload the component by requesting the URL in the background
-                const prefetchReactRouter = () => {
-                    const link = document.createElement('link');
-                    link.rel = 'prefetch';
-                    link.href = url;
-                    link.as = 'document';
-                    document.head.appendChild(link);
-
-                    // Also try preconnect
-                    const preconnect = document.createElement('link');
-                    preconnect.rel = 'preconnect';
-                    preconnect.href = new URL(url, window.location.origin).origin;
-                    document.head.appendChild(preconnect);
-                };
-
-                prefetchReactRouter();
+            case 'react-router':
+                prefetchReactRouter(url, routerContext);
                 break;
-            }
 
-            case 'tanstack-router': {
-                // TanStack Router has built-in prefetching via the router instance
-                // Here we're assuming the router instance is available in the routerContext
-                if (routerContext?.router?.prefetch) {
-                    routerContext.router.prefetch(url);
-                } else if (window.TanStackRouter?.router?.prefetch) {
-                    // Try to access it from global scope as fallback
-                    window.TanStackRouter.router.prefetch(url);
-                } else {
-                    console.warn('TanStack Router prefetch: router instance not found');
-                    return false;
+            case 'tanstack-router':
+                const success = prefetchTanStackRouter(url, routerContext);
+                if (!success) {
+                    console.warn('TanStack Router prefetch: router instance not found, using basic prefetch');
                 }
                 break;
-            }
 
-            case 'wouter': {
-                // Wouter doesn't have built-in prefetching, so we implement similar to React Router
-                const prefetchWouter = () => {
-                    const link = document.createElement('link');
-                    link.rel = 'prefetch';
-                    link.href = url;
-                    link.as = 'document';
-                    document.head.appendChild(link);
-                };
-
-                prefetchWouter();
+            case 'wouter':
+                basicPrefetch(url);
                 break;
-            }
 
             default:
-                // Fall back to basic prefetching for unknown router types
-                const link = document.createElement('link');
-                link.rel = 'prefetch';
-                link.href = url;
-                link.as = 'document';
-                document.head.appendChild(link);
+                basicPrefetch(url);
                 break;
         }
 
@@ -120,4 +181,11 @@ export const executePrefetch = (
         }
         return false;
     }
+};
+
+/**
+ * Clear prefetch cache
+ */
+export const clearPrefetchCache = (): void => {
+    prefetchCache.clear();
 };

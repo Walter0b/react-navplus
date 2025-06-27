@@ -3,7 +3,7 @@
  * @description Main entry point for the react-navplus package
  */
 
-export { NavPlus, RouterNavLink } from './NavPlus';
+export { NavPlus } from './NavPlus';
 export { NavLinkProvider, useNavLinkContext } from './context/NavContext';
 
 export { useIsActive } from './hooks/useIsActive';
