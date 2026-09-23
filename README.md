@@ -1,220 +1,207 @@
 # NavPlus
 
-A flexible, accessible, and framework-agnostic navigation link component for React.
+One navigation link for React, whatever router you use. Works with **React Router**, **TanStack Router** and **wouter**, and with any other router through a small adapter.
 
----
+```tsx
+import { NavPlus } from 'react-navplus/react-router'; // or /tanstack-router, /wouter
 
-## Table of Contents
+<NavPlus to="/docs">Docs</NavPlus>
+```
 
-- [NavPlus](#navplus)
-  - [Table of Contents](#table-of-contents)
-  - [Features](#features)
-  - [Installation](#installation)
-  - [Quick Start](#quick-start)
-    - [1. Basic Usage](#1-basic-usage)
-    - [2. RouterNavLink Wrapper](#2-routernavlink-wrapper)
-    - [3. Prefetch on Hover](#3-prefetch-on-hover)
-    - [4. Custom Rendering \& Triggers](#4-custom-rendering--triggers)
-  - [API](#api)
-    - [`<NavPlus>` Props](#navplus-props)
-      - [PrefetchOptions](#prefetchoptions)
-  - [Usage Tips](#usage-tips)
-  - [Contributing](#contributing)
-  - [License](#license)
+- **Active state that is correct.** Compares whole path segments, so `/home` is not active on `/homepage`, and `/` is only active on the root.
+- **A real link.** Renders an `<a href>` that respects the router's basename or base. Cmd/Ctrl/Shift-click, middle-click and `target="_blank"` still open a new tab.
+- **Prefetching.** On hover and focus, using the router's own preloader where it has one.
+- **Delayed and hover navigation.** Wait for an exit animation, or navigate when the pointer settles on a link.
+- **Accessible.** `aria-current="page"`, and a disabled state that is announced as disabled.
+- **Small.** No runtime dependencies. Each router's adapter is its own entry point, so you only ship the one you use.
 
----
-
-## Features
-
-- **Active-state detection**
-  - `exact`, `startsWith`, `includes`, or custom regex (`pattern`)
-  - Override with your own `isActiveFunc` or `customActiveUrl`
-- **Prefetching support**
-  - Hover-triggered prefetch with configurable delay
-  - Works with React Router, TanStack Router, Wouter, or your own custom prefetcher
-- **Flexible rendering**
-  - Renders a React Router `<Link>`, a plain `<a>`, a `<span>`, or any custom element via `as`
-  - Fully controllable redirection (`redirection`), replace vs push (`replace`), and navigation delay
-- **External & disabled links**
-  - `isExternal` → `<a target="_blank" rel="noopener noreferrer">`
-  - `disabled` → renders a `<span>` with `aria-disabled`
-- **Styling & class names**
-  - `className`, `activeClassName`, `inActiveClassName`
-  - `activeStyle`, `inactiveStyle`
-- **Dynamic children**
-  - Render static React nodes or pass a function `(isActive) => ReactNode`
-- **Accessibility**
-  - Custom ARIA attributes via `aria` prop
-  - Automatically applies `aria-current="page"` and `aria-disabled`
-- **Test-friendly**
-  - `data-testid` support for easy querying in Jest, React Testing Library, Cypress, etc.
-- **Lightweight & Tree-shakable**
-  - Written in TypeScript, no runtime dependencies beyond React
-
----
-
-## Installation
-
-Using npm:
+## Install
 
 ```bash
 npm install react-navplus
 ```
 
-Using Yarn:
+`react` is required. The router packages are optional peer dependencies: install the one you already use.
 
-```bash
-yarn add react-navplus
-```
+## Quick start
 
-Using Bun:
-
-```bash
-bun add react-navplus
-```
-
----
-
-## Quick Start
-
-### 1. Basic Usage
+Import `NavPlus` from the entry point for your router.
 
 ```tsx
-import React from 'react';
-import { NavPlus } from 'react-navplus';
+// React Router (v6 or v7)
+import { NavPlus } from 'react-navplus/react-router';
 
-const Nav = () => (
-  <nav>
-    <NavPlus to="/home">Home</NavPlus>
-    <NavPlus to="/about" matchMode="exact">
-      About
-    </NavPlus>
-    <NavPlus to="https://example.com" isExternal>
-      External Site
-    </NavPlus>
-  </nav>
-);
+// TanStack Router
+import { NavPlus } from 'react-navplus/tanstack-router';
+
+// wouter (v3)
+import { NavPlus } from 'react-navplus/wouter';
 ```
 
-### 2. RouterNavLink Wrapper
-
-If you’re using React Router v6, you can skip passing in `location` and `navigate` by using the built-in wrapper:
+Then use it inside your router, like any link:
 
 ```tsx
-import React from 'react';
-import { RouterNavLink } from 'react-navplus';
-
-const Nav = () => (
-  <nav>
-    <RouterNavLink to="/dashboard" activeClassName="active">
-      Dashboard
-    </RouterNavLink>
-  </nav>
-);
-```
-
-### 3. Prefetch on Hover
-
-```tsx
-<RouterNavLink
-  to="/products"
-  prefetch={{ enabled: true, delay: 150, routerType: 'tanstack-router' }}
->
-  Products
-</RouterNavLink>
-```
-
-### 4. Custom Rendering & Triggers
-
-```tsx
-<RouterNavLink
-  to="/settings"
-  as="button"
-  triggerEvent="hover"
-  navigationDelay={300}
->
-  {(isActive) => (isActive ? <strong>Settings</strong> : <span>Settings</span>)}
-</RouterNavLink>
-```
-
----
-
-## API
-
-### `<NavPlus>` Props
-
-| Prop                | Type                                                       | Default      | Description                                                                                 |
-| ------------------- | ---------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------- |
-| `to`                | `string`                                                   | —            | **Required.** Target URL or path.                                                           |
-| `children`          | `ReactNode` \| `(isActive: boolean) => ReactNode`          | —            | Content inside the link. Can be a React node or a render function that receives `isActive`. |
-| `location`          | `{ pathname: string }`                                     | `undefined`  | Current location (e.g. from `useLocation()`). If omitted, link is never active.             |
-| `navigate`          | `(to: string, options?: { replace?: boolean }) => void`    | `undefined`  | Navigation function (e.g. from `useNavigate()`). If omitted, behaves like a plain `<a>`.    |
-| `matchMode`         | `'exact'` \| `'startsWith'` \| `'includes'` \| `'pattern'` | `'includes'` | How to match `location.pathname` against `to` (`pattern` uses `matchPattern`).              |
-| `matchPattern`      | `RegExp`                                                   | `undefined`  | Custom regex to match against current pathname (only when `matchMode="pattern"`).           |
-| `customActiveUrl`   | `string`                                                   | `undefined`  | Use a different URL for active detection instead of `to`.                                   |
-| `isActiveFunc`      | `(pathname: string, to: string) => boolean`                | `undefined`  | Fully custom active-detection function.                                                     |
-| `prefetch`          | `boolean` \| `PrefetchOptions`                             | `false`      | Enable hover-prefetch. See **PrefetchOptions** below.                                       |
-| `redirection`       | `boolean`                                                  | `true`       | If `false`, renders a `<span>` and no navigation occurs.                                    |
-| `replace`           | `boolean`                                                  | `false`      | If `true`, navigation uses `history.replace` instead of `push`.                             |
-| `navigationDelay`   | `number` (ms)                                              | `undefined`  | Delay before performing navigation (useful for animations).                                 |
-| `triggerEvent`      | `'click'` \| `'hover'`                                     | `'click'`    | Which event triggers navigation.                                                            |
-| `isExternal`        | `boolean`                                                  | `false`      | Render as external link (`<a target="_blank" rel="noopener noreferrer">`).                  |
-| `disabled`          | `boolean`                                                  | `false`      | Render as a disabled `<span>` with `aria-disabled`.                                         |
-| `as`                | `React.ElementType`                                        | `undefined`  | Custom element or component to render instead of `<Link>`/`<a>`/`<span>`.                   |
-| `className`         | `string`                                                   | `''`         | Base class(es) applied to the link.                                                         |
-| `activeClassName`   | `string`                                                   | `'active'`   | Class applied when link is active.                                                          |
-| `inActiveClassName` | `string`                                                   | `''`         | Class applied when link is not active.                                                      |
-| `activeStyle`       | `React.CSSProperties`                                      | `undefined`  | Inline style when active.                                                                   |
-| `inactiveStyle`     | `React.CSSProperties`                                      | `undefined`  | Inline style when inactive.                                                                 |
-| `id`                | `string`                                                   | `undefined`  | `id` attribute on the rendered element.                                                     |
-| `aria`              | `React.AriaAttributes`                                     | `{}`         | Additional ARIA attributes.                                                                 |
-| `testId`            | `string`                                                   | `undefined`  | `data-testid` for automated tests.                                                          |
-| `linkProps`         | Omit<`LinkProps`, `'to'` \| `'replace'`>                   | `{}`         | Extra props to pass down when using React Router’s `<Link>`.                                |
-| `routerContext`     | `any`                                                      | `undefined`  | Pass in your own router context (`{ navigate, router }`) for custom integrations.           |
-
-#### PrefetchOptions
-
-```ts
-interface PrefetchOptions {
-  enabled?: boolean; // default: true
-  delay?: number; // ms, default: 200
-  routerType?: 'react-router' | 'tanstack-router' | 'wouter' | 'custom'; // default: 'react-router'
-  customPrefetch?: (to: string) => void;
+function Nav() {
+  return (
+    <nav>
+      <NavPlus to="/" matchMode="exact">Home</NavPlus>
+      <NavPlus to="/docs" activeClassName="is-current">Docs</NavPlus>
+      <NavPlus to="/pricing" prefetch>Pricing</NavPlus>
+      <NavPlus to="https://github.com" isExternal>GitHub</NavPlus>
+      <NavPlus to="/admin" disabled>Admin</NavPlus>
+    </nav>
+  );
 }
 ```
 
----
+Children can be a function of the active state:
 
-## Usage Tips
+```tsx
+<NavPlus to="/inbox">{(active) => (active ? <strong>Inbox</strong> : 'Inbox')}</NavPlus>
+```
 
-- **Custom matching:** Use
+## Router support
 
-  ```tsx
-  matchMode="pattern"
-  matchPattern={/^\/blog(\/|$)/}
-  ```
+|                          | React Router                      | TanStack Router                                  | wouter                                    |
+| ------------------------ | --------------------------------- | ------------------------------------------------ | ----------------------------------------- |
+| Entry point              | `react-navplus/react-router`      | `react-navplus/tanstack-router`                  | `react-navplus/wouter`                    |
+| Peer range               | `react-router-dom >=6`            | `@tanstack/react-router >=1`                     | `wouter >=3`                              |
+| Tested against           | 7.6 (data router and `MemoryRouter`) | 1.170                                         | 3.11                                      |
+| Basename / base in `href`| yes                               | yes (`basepath`)                                 | yes (`base`, `hrefs`, `~` absolute paths) |
+| Relative `to`            | yes                               | not supported, use absolute paths                | not supported, use absolute paths         |
+| `?search`, `#hash` in `to` | yes                             | yes, parsed into TanStack search params          | search only, wouter does not expose the hash |
+| Built-in prefetch        | no, pass `prefetch={{ handler }}` | yes, `router.preloadRoute` (runs loaders)        | no, pass `prefetch={{ handler }}`         |
+| `navigateOptions`        | React Router's `NavigateOptions`  | `resetScroll`, `viewTransition`, `ignoreBlocker` | `transition`                              |
 
-  for advanced route matching.
+The React Router adapter only uses APIs that exist in v6, but the test suite runs against v7.
 
-- **Custom elements:** Pass `as="button"` or your own styled component to match your design system.
-- **Global context:** The optional `NavContext` in `src/context/NavContext.tsx` can share navigation state or prefetch logic.
-- **Standalone hooks:** We expose `useIsActive` and `usePrefetch` in `src/hooks/` if you need the logic outside of the component.
+## Active state
 
----
+A link is active when the current pathname matches its `to`. The query string and hash of `to` are ignored, as are trailing slashes and letter case (set `caseSensitive` to change that).
+
+| `matchMode`            | Active when                                              | `to="/docs"` at `/docs/intro` |
+| ---------------------- | -------------------------------------------------------- | ----------------------------- |
+| `startsWith` (default) | the path is `to` or nested under it                      | active                        |
+| `exact`                | the path equals `to`                                     | not active                    |
+| `includes`             | `to`'s segments appear anywhere in the path              | active                        |
+| `pattern`              | `matchPattern` matches the pathname                      | depends on the regex          |
+
+```tsx
+<NavPlus to="/blog" matchMode="pattern" matchPattern={/^\/(blog|news)(\/|$)/}>Blog</NavPlus>
+<NavPlus to="/shop" customActiveUrl="/products">Shop</NavPlus>
+<NavPlus to="/reports" isActiveFunc={(pathname, to, location) => location.search.includes('tab=reports')}>
+  Reports
+</NavPlus>
+```
+
+Outside a link, use the hook from the same entry point:
+
+```tsx
+import { useIsActive } from 'react-navplus/react-router';
+
+const active = useIsActive('/docs', { matchMode: 'exact' });
+```
+
+The matcher is also available on its own, with no router: `import { isActive } from 'react-navplus'`.
+
+## Props
+
+All other props (`id`, `aria-*`, `data-*`, `onFocus`, `ref`, ...) go to the rendered element.
+
+| Prop                | Type                                              | Default        | Description |
+| ------------------- | ------------------------------------------------- | -------------- | ----------- |
+| `to`                | `string`                                          | required       | Destination. May include `?search` and `#hash`. An absolute URL (`https:`, `mailto:`, `//`) is never routed. |
+| `children`          | `ReactNode` or `(isActive: boolean) => ReactNode` |                | Content, or a function of the active state. |
+| `matchMode`         | `'startsWith'`, `'exact'`, `'includes'`, `'pattern'` | `'startsWith'` | How the current path is compared with `to`. |
+| `matchPattern`      | `RegExp`                                          |                | Used when `matchMode` is `'pattern'`. |
+| `caseSensitive`     | `boolean`                                         | `false`        | Compare paths case-sensitively. |
+| `customActiveUrl`   | `string`                                          |                | Match against this path instead of `to`. |
+| `isActiveFunc`      | `(pathname, to, location) => boolean`             |                | Replaces the built-in matching. `to` is the path being matched, resolved to absolute. |
+| `className`         | `string`                                          |                | Always applied. `navplus-link` is always added too. |
+| `activeClassName`   | `string`                                          | `'active'`     | Added when active. |
+| `inActiveClassName` | `string`                                          |                | Added when not active. |
+| `activeStyle`, `inactiveStyle` | `CSSProperties`                        |                | Merged over `style` for each state. |
+| `replace`           | `boolean`                                         | `false`        | Replace the history entry instead of pushing one. |
+| `state`             | `unknown`                                         |                | History state to navigate with. |
+| `navigateOptions`   | router specific                                   |                | Extra options for the router's own navigate function. See the table above. |
+| `prefetch`          | `boolean` or `PrefetchOptions`                    | `false`        | Prefetch on hover and focus. |
+| `triggerEvent`      | `'click'` or `'hover'`                            | `'click'`      | `'hover'` navigates when the pointer enters the link. |
+| `navigationDelay`   | `number` (ms)                                     | `0`            | Wait before navigating, for example to finish an exit animation. |
+| `disabled`          | `boolean`                                         | `false`        | Renders without an `href`, with `aria-disabled="true"` and `tabindex="-1"`. Nothing happens on click. |
+| `isExternal`        | `boolean`                                         | `false`        | Renders a plain link with `target="_blank"` and `rel="noopener noreferrer"`. |
+| `as`                | `ElementType`                                     | `'a'`          | Element or component to render. It receives `href`. |
+| `testId`            | `string`                                          |                | Rendered as `data-testid`. |
+
+The rendered element also carries `aria-current="page"` and `data-active="true"` while active. Pass your own `aria-current` to override it.
+
+### Click behaviour
+
+Only a plain left click is handled by the router. Modified clicks (Cmd, Ctrl, Shift, Alt), middle clicks, links with `target` other than `_self`, and links with `download` are left to the browser. If `onClick` calls `preventDefault()`, NavPlus does not navigate.
+
+With `navigationDelay`, a second click restarts the wait, so the navigation happens once. A click is a committed intent: it still navigates if the link unmounts during the wait, for example a menu that closes on click.
+
+### Hover navigation
+
+`triggerEvent="hover"` navigates when the pointer enters the link, after `navigationDelay`. Leaving before the delay cancels it. A click after a hover does not navigate a second time, and a click with no hover (touch) navigates normally. It does nothing if you are already at the link's path.
+
+## Prefetch
+
+```tsx
+<NavPlus to="/dashboard" prefetch>Dashboard</NavPlus>
+<NavPlus to="/reports" prefetch={{ delay: 100 }}>Reports</NavPlus>
+<NavPlus to="/lazy" prefetch={{ handler: () => import('./pages/Lazy') }}>Lazy</NavPlus>
+```
+
+Hovering or focusing the link for `delay` milliseconds (default 200) prefetches it once. Leaving or blurring earlier cancels it.
+
+```ts
+interface PrefetchOptions {
+  enabled?: boolean;              // default true
+  delay?: number;                 // ms, default 200
+  handler?: (to: string) => void; // used instead of the router's own prefetch
+}
+```
+
+TanStack Router has a built-in preloader, so `prefetch` alone runs the target route's loaders and loads its code. React Router and wouter have no client-side preloader outside of React Router's framework mode, so they need a `handler`; without one NavPlus logs a development warning and does nothing.
+
+## Another router
+
+`createNavPlus` builds the same component from a small adapter. This is how the three entry points above are made.
+
+```tsx
+import { createNavPlus } from 'react-navplus';
+
+export const { NavPlus, useIsActive } = createNavPlus({
+  name: 'my-router',
+  useLocation: () => ({ pathname, search, hash }),
+  useNavigate: () => (to, options) => { /* push or replace */ },
+});
+```
+
+See [Writing an adapter](docs/writing-an-adapter.md) for the full interface and a complete example.
+
+## Upgrading from 2.x
+
+3.0 is a breaking release: `NavPlus` now lives in a per-router entry point, the default match mode is segment-aware `startsWith`, and several props and exports were removed. See [Migrating to 3.0](docs/migrating-to-3.md).
+
+## Development
+
+```bash
+npm test          # jest, against real React Router, TanStack Router and wouter
+npm run typecheck
+npm run lint
+npm run build     # tsup: ESM, CJS and type declarations for every entry point
+```
+
+The behaviour every adapter must share is one suite, [tests/adapters/conformance.tsx](tests/adapters/conformance.tsx), which runs against each router.
 
 ## Contributing
 
 1. Fork the repo
-2. Create your feature branch (`git checkout -b feature/foo`)
-3. Commit your changes (`git commit -am 'Add foo'`)
-4. Push to the branch (`git push origin feature/foo`)
-5. Open a Pull Request
-
-Please run `npm test` and `npm run lint` before submitting.
-
----
+2. Create a feature branch (`git checkout -b feature/foo`)
+3. Add tests, and run `npm test`, `npm run typecheck` and `npm run lint`
+4. Open a pull request
 
 ## License
 
-MIT © [Your Name or Organization]
-See [LICENSE](LICENSE) for details.
+MIT © [WalterOb](https://github.com/WalterOb)

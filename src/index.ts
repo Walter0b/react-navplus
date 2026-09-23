@@ -1,28 +1,24 @@
 /**
  * @file index.ts
- * @description Main entry point for the react-navplus package
+ * @description Router-agnostic core of react-navplus. Most apps want one of the
+ * ready-made entry points instead:
+ *   - react-navplus/react-router
+ *   - react-navplus/tanstack-router
+ *   - react-navplus/wouter
+ * Use `createNavPlus` here to support any other router.
  */
 
-export { NavPlus } from './NavPlus';
-export { NavLinkProvider, useNavLinkContext } from './context/NavContext';
-
-export { useIsActive } from './hooks/useIsActive';
-export { usePrefetch } from './hooks/usePrefetch';
-
-export { matchers, cleanUrl, isActive, isActiveWithCustomFn } from './utils/matchers';
-export {
-    defaultPrefetchOptions,
-    normalizePrefetchOptions,
-    executePrefetch
-} from './utils/prefetch';
+export { createNavPlus } from './core/createNavPlus';
+export { isActive, isAbsoluteUrl, normalizePath, splitTo } from './core/matchers';
 
 export type {
-    MatchMode,
-    NavLinkChildren,
-    RouterType,
-    PrefetchOptions,
-    TanStackRouterGlobal,
-    RouterContext,
-    NavLinkContextValue,
-    NavPlusProps
-} from './types';
+  IsActiveOptions,
+  MatchMode,
+  NavigateOptions,
+  NavLocation,
+  NavPlusOwnProps,
+  NavPlusProps,
+  PrefetchOptions,
+  ResolvedTo,
+  RouterAdapter,
+} from './core/types';

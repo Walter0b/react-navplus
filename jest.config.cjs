@@ -1,10 +1,17 @@
 module.exports = {
-    preset: 'ts-jest',
-    testEnvironment: 'jsdom',
-    testMatch: ['**/tests/**/*.(test|spec).(ts|tsx)'],
-    moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
-    setupFilesAfterEnv: [],
-    moduleNameMapper: {
-        '\\.(css|less|scss|sass)$': 'identity-obj-proxy'
-    }
+  testEnvironment: 'jsdom',
+  setupFiles: ['<rootDir>/tests/setup.ts'],
+  testMatch: ['<rootDir>/tests/**/*.test.(ts|tsx)'],
+  // Type checking is `npm run typecheck`; jest only transpiles. The routers are ESM-only in
+  // parts, so wouter and its dependencies are transpiled too.
+  transform: {
+    '^.+\\.[tj]sx?$': [
+      'ts-jest',
+      {
+        diagnostics: false,
+        tsconfig: { jsx: 'react-jsx', module: 'commonjs', esModuleInterop: true, allowJs: true },
+      },
+    ],
+  },
+  transformIgnorePatterns: ['/node_modules/(?!(wouter|regexparam|mitt)/)'],
 };
