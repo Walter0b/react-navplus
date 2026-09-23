@@ -81,6 +81,34 @@ describe('react-router: specifics', () => {
     expect(screen.getByRole('link', { name: 'Blog' }).getAttribute('aria-current')).toBeNull();
   });
 
+  test('path-relative navigation agrees with the href and active-state hook', async () => {
+    const Probe = () => (
+      <output data-testid="active">
+        {String(useIsActive('../profile', { matchMode: 'exact' }, { relative: 'path' }))}
+      </output>
+    );
+    render(
+      <MemoryRouter initialEntries={['/settings/profile']}>
+        <LocationProbe />
+        <Routes>
+          <Route path="settings/:tab" element={
+            <>
+              <Probe />
+              <NavPlus to="../profile" navigateOptions={{ relative: 'path' }}>Here</NavPlus>
+              <NavPlus to="../billing" navigateOptions={{ relative: 'path' }}>Billing</NavPlus>
+            </>
+          } />
+        </Routes>
+      </MemoryRouter>
+    );
+    expect(screen.getByTestId('active').textContent).toBe('true');
+    expect(screen.getByRole('link', { name: 'Here' }).getAttribute('aria-current')).toBe('page');
+    const billing = screen.getByRole('link', { name: 'Billing' });
+    expect(billing.getAttribute('href')).toBe('/settings/billing');
+    fireEvent.click(billing);
+    await waitFor(() => expect(currentLocation()).toBe('/settings/billing|||null'));
+  });
+
   test('navigates to hash, search and state exactly as written', async () => {
     render(
       <MemoryRouter>

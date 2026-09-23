@@ -64,11 +64,12 @@
   },
   "sideEffects": false,
   "scripts": {
-    "build": "rimraf dist && tsup",
-    "prepublishOnly": "npm run typecheck && npm test && npm run build",
+    "build": "tsup",
+    "prepublishOnly": "npm run lint && npm run typecheck && npm test -- --runInBand && npm run build && npm run test:package",
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch",
+    "test:package": "node --test tests/package/*.test.mjs",
     "lint": "eslint src tests --ext .ts,.tsx",
     "clean": "rimraf dist"
   },
@@ -151,6 +152,7 @@
   },
   "files": [
     "dist",
+    "docs",
     "README.md",
     "LICENSE"
   ]

@@ -16,4 +16,4 @@ export const shouldHandleClick = (
   event.button === 0 &&
   !isModified(event) &&
   (!target || target === '_self') &&
-  download === undefined;
+  (download === undefined || download === null || download === false);

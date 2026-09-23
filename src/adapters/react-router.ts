@@ -16,10 +16,10 @@ export const reactRouterAdapter: RouterAdapter<RouterNavigateOptions> = {
   name: 'react-router',
   useLocation,
   useNavigate,
-  useResolve(to) {
+  useResolve(to, options) {
     // These resolve relative `to` values against the current route and add the basename.
-    const href = useHref(to);
-    const { pathname } = useResolvedPath(to);
+    const href = useHref(to, { relative: options?.relative });
+    const { pathname } = useResolvedPath(to, { relative: options?.relative });
     return { href, pathname };
   },
 };

@@ -23,6 +23,14 @@ npm install react-navplus
 
 `react` is required. The router packages are optional peer dependencies: install the one you already use.
 
+The core supports React 16.14 and later; your router may require a newer version. Development uses Node 22 or 24. When loading the wouter adapter through CommonJS in Node, use Node 20.19+ or 22.12+ to support wouter's ESM-only distribution.
+
+## When to use NavPlus
+
+Use NavPlus when you want the same active-state, delayed navigation and prefetch API across routers, or a reusable navigation component for your own router. React Router's own [NavLink](https://reactrouter.com/api/components/NavLink) already provides active styling and accessibility, and its framework mode supports prefetching. For an app that only needs those features, the router's own link may be enough.
+
+NavPlus accepts string destinations. It does not preserve TanStack Router's route-tree inference for typed route parameters and search objects; use TanStack's native `Link` when that is your priority.
+
 ## Quick start
 
 Import `NavPlus` from the entry point for your router.
@@ -46,7 +54,7 @@ function Nav() {
     <nav>
       <NavPlus to="/" matchMode="exact">Home</NavPlus>
       <NavPlus to="/docs" activeClassName="is-current">Docs</NavPlus>
-      <NavPlus to="/pricing" prefetch>Pricing</NavPlus>
+      <NavPlus to="/pricing">Pricing</NavPlus>
       <NavPlus to="https://github.com" isExternal>GitHub</NavPlus>
       <NavPlus to="/admin" disabled>Admin</NavPlus>
     </nav>
@@ -102,6 +110,8 @@ import { useIsActive } from 'react-navplus/react-router';
 const active = useIsActive('/docs', { matchMode: 'exact' });
 ```
 
+For React Router path-relative links, set `navigateOptions={{ relative: 'path' }}`; the href, active matching and navigation all use that resolution mode. The hook accepts the same router options as its third argument: `useIsActive('../docs', { matchMode: 'exact' }, { relative: 'path' })`.
+
 The matcher is also available on its own, with no router: `import { isActive } from 'react-navplus'`.
 
 ## Props
@@ -138,11 +148,11 @@ The rendered element also carries `aria-current="page"` and `data-active="true"`
 
 Only a plain left click is handled by the router. Modified clicks (Cmd, Ctrl, Shift, Alt), middle clicks, links with `target` other than `_self`, and links with `download` are left to the browser. If `onClick` calls `preventDefault()`, NavPlus does not navigate.
 
-With `navigationDelay`, a second click restarts the wait, so the navigation happens once. A click is a committed intent: it still navigates if the link unmounts during the wait, for example a menu that closes on click.
+With `navigationDelay`, a second click restarts the wait, so the navigation happens once. A click is a committed intent: it still navigates if the link unmounts during the wait, for example a menu that closes on click. Clicking during a pending hover also commits the navigation.
 
 ### Hover navigation
 
-`triggerEvent="hover"` navigates when the pointer enters the link, after `navigationDelay`. Leaving before the delay cancels it. A click after a hover does not navigate a second time, and a click with no hover (touch) navigates normally. It does nothing if you are already at the link's path.
+`triggerEvent="hover"` navigates when the pointer enters the link, after `navigationDelay`. Leaving before the delay cancels it. A click after a completed hover does not navigate a second time, and a click with no hover (touch) navigates normally. It does nothing if you are already at the link's path. Download links, modified pointer events, and links targeting another browsing context do not hover-navigate. Calling `preventDefault()` in `onMouseEnter` cancels automatic hover work.
 
 ## Prefetch
 
@@ -152,7 +162,7 @@ With `navigationDelay`, a second click restarts the wait, so the navigation happ
 <NavPlus to="/lazy" prefetch={{ handler: () => import('./pages/Lazy') }}>Lazy</NavPlus>
 ```
 
-Hovering or focusing the link for `delay` milliseconds (default 200) prefetches it once. Leaving or blurring earlier cancels it.
+Hovering or focusing the link for `delay` milliseconds (default 200) prefetches it once per resolved destination. Leaving or blurring earlier cancels it when neither hover nor focus remains. Changing the destination, disabling the link, or turning prefetch off cancels pending work. Calling `preventDefault()` in `onFocus` cancels focus prefetching. Failed custom prefetch handlers can retry on the next interaction.
 
 ```ts
 interface PrefetchOptions {
@@ -191,6 +201,7 @@ npm test          # jest, against real React Router, TanStack Router and wouter
 npm run typecheck
 npm run lint
 npm run build     # tsup: ESM, CJS and type declarations for every entry point
+npm run test:package # after building: load each public entry with import and require
 ```
 
 The behaviour every adapter must share is one suite, [tests/adapters/conformance.tsx](tests/adapters/conformance.tsx), which runs against each router.

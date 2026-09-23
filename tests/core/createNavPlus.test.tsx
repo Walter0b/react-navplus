@@ -16,6 +16,135 @@ const setup = (initialPath = '/', extras = {}) => {
 
 const link = () => screen.getByRole('link');
 
+describe('interaction regressions', () => {
+  beforeEach(() => jest.useFakeTimers());
+
+  test.each(['leave', 'unmount'])('a click commits a pending hover before %s', (action) => {
+    const { NavPlus, router } = setup();
+    const { unmount } = render(<NavPlus to="/a" triggerEvent="hover" navigationDelay={300}>A</NavPlus>);
+    fireEvent.mouseEnter(link());
+    act(() => void jest.advanceTimersByTime(100));
+    fireEvent.click(link());
+    if (action === 'leave') fireEvent.mouseLeave(link());
+    else unmount();
+    act(() => void jest.advanceTimersByTime(1000));
+    expect(router.navigations.map((navigation) => navigation.to)).toEqual(['/a']);
+  });
+
+  test.each([
+    { disabled: true },
+    { to: '/b' },
+    { isExternal: true },
+    { triggerEvent: 'click' as const },
+  ])('cancels pending hover work when props change to %j', (changes) => {
+    const preload = jest.fn();
+    const { NavPlus, router } = setup('/', { usePrefetch: () => preload });
+    const props = { to: '/a', triggerEvent: 'hover' as const, navigationDelay: 300, prefetch: true };
+    const { rerender } = render(<NavPlus {...props}>A</NavPlus>);
+    fireEvent.mouseEnter(link());
+    rerender(<NavPlus {...props} {...changes}>A</NavPlus>);
+    act(() => void jest.advanceTimersByTime(1000));
+    expect(router.navigations).toHaveLength(0);
+    expect(preload).not.toHaveBeenCalled();
+  });
+
+  test('turning prefetch off cancels an already scheduled request', () => {
+    const handler = jest.fn();
+    const { NavPlus } = setup();
+    const { rerender } = render(<NavPlus to="/a" prefetch={{ handler }}>A</NavPlus>);
+    fireEvent.focus(link());
+    rerender(<NavPlus to="/a" prefetch={{ handler, enabled: false }}>A</NavPlus>);
+    act(() => void jest.advanceTimersByTime(1000));
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  test.each(['throw', 'reject'])('prefetch can retry after a handler fails with %s', async (failure) => {
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const handler = jest.fn().mockImplementationOnce(() => {
+      if (failure === 'throw') throw new Error('offline');
+      return Promise.reject(new Error('offline'));
+    });
+    const { NavPlus } = setup();
+    render(<NavPlus to="/a" prefetch={{ handler }}>A</NavPlus>);
+    fireEvent.mouseEnter(link());
+    await act(async () => { jest.advanceTimersByTime(200); });
+    fireEvent.mouseLeave(link());
+    fireEvent.mouseEnter(link());
+    await act(async () => { jest.advanceTimersByTime(200); });
+    expect(handler).toHaveBeenCalledTimes(2);
+  });
+
+  test('prefetch follows the resolved destination when a relative link changes context', () => {
+    let base = '/first';
+    const handler = jest.fn();
+    const { NavPlus } = setup('/', {
+      useResolve: () => ({ href: `${base}/child`, pathname: `${base}/child` }),
+    });
+    const { rerender } = render(<NavPlus to="child" prefetch={{ handler }}>A</NavPlus>);
+    fireEvent.mouseEnter(link());
+    act(() => void jest.advanceTimersByTime(200));
+    fireEvent.mouseLeave(link());
+    base = '/second';
+    rerender(<NavPlus to="child" prefetch={{ handler }}>A</NavPlus>);
+    fireEvent.mouseEnter(link());
+    act(() => void jest.advanceTimersByTime(200));
+    expect(handler).toHaveBeenCalledTimes(2);
+  });
+
+  test.each([{ target: '_blank' }, { download: true }, { download: '' }])(
+    'does not hover-navigate browser-managed links: %j', (props) => {
+      const { NavPlus, router } = setup();
+      render(<NavPlus to="/a" triggerEvent="hover" {...props}>A</NavPlus>);
+      fireEvent.mouseEnter(link());
+      expect(router.navigations).toHaveLength(0);
+    }
+  );
+
+  test('download=false is an ordinary routed link', () => {
+    const { NavPlus, router } = setup();
+    render(<NavPlus to="/a" download={false}>A</NavPlus>);
+    expect(link().hasAttribute('download')).toBe(false);
+    expect(fireEvent.click(link())).toBe(false);
+    expect(router.navigations).toHaveLength(1);
+  });
+
+  test('forwards data-testid and allows the testId alias to override it', () => {
+    const { NavPlus } = setup();
+    const { rerender } = render(<NavPlus to="/a" data-testid="native">A</NavPlus>);
+    expect(screen.getByTestId('native')).toBe(link());
+    rerender(<NavPlus to="/a" data-testid="native" testId="alias">A</NavPlus>);
+    expect(screen.getByTestId('alias')).toBe(link());
+  });
+
+  test('preventDefault in enter and focus handlers cancels automatic work', () => {
+    const handler = jest.fn();
+    const { NavPlus, router } = setup();
+    render(
+      <NavPlus to="/a" triggerEvent="hover" prefetch={{ handler }}
+        onMouseEnter={(event) => event.preventDefault()}
+        onFocus={(event) => event.preventDefault()}>A</NavPlus>
+    );
+    fireEvent.mouseEnter(link());
+    fireEvent.focus(link());
+    act(() => void jest.advanceTimersByTime(1000));
+    expect(router.navigations).toHaveLength(0);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  test.each(['focus', 'hover'])('keeps prefetch pending while %s remains', (remaining) => {
+    const handler = jest.fn();
+    const { NavPlus } = setup();
+    render(<NavPlus to="/a" prefetch={{ handler }}>A</NavPlus>);
+    fireEvent.mouseEnter(link());
+    act(() => void jest.advanceTimersByTime(100));
+    fireEvent.focus(link());
+    if (remaining === 'focus') fireEvent.mouseLeave(link());
+    else fireEvent.blur(link());
+    act(() => void jest.advanceTimersByTime(100));
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('rendering', () => {
   test('renders an anchor with the href and children', () => {
     const { NavPlus } = setup();
@@ -657,7 +786,7 @@ describe('adapter resolution', () => {
     const useResolve = jest.fn((to: string) => ({ href: to, pathname: to }));
     const { NavPlus } = setup('/', { useResolve });
     render(<NavPlus to="https://example.com/x">X</NavPlus>);
-    expect(useResolve).toHaveBeenCalledWith('');
+    expect(useResolve).toHaveBeenCalledWith('', undefined);
     expect(link().getAttribute('href')).toBe('https://example.com/x');
   });
 });

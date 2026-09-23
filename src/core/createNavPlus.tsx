@@ -32,12 +32,16 @@ export function createNavPlus<TNavigateOptions extends NavigateOptions = Navigat
   const resolve = adapter.useResolve ?? defaultResolve;
   const usePrefetchHandler = adapter.usePrefetch ?? noPrefetch;
 
-  function useLinkState(to: string, options: IsActiveOptions) {
+  function useLinkState(
+    to: string,
+    options: IsActiveOptions,
+    navigateOptions?: Omit<TNavigateOptions, 'replace' | 'state'>
+  ) {
     const location = adapter.useLocation();
     const external = isAbsoluteUrl(to);
     // Hooks inside `resolve` must run every render, so it is always called; external
     // URLs get a placeholder because routers cannot resolve them.
-    const resolved = resolve(external ? '' : to);
+    const resolved = resolve(external ? '' : to, navigateOptions);
     const { customActiveUrl, isActiveFunc, matchMode, matchPattern, caseSensitive } = options;
 
     let active = false;
@@ -51,8 +55,12 @@ export function createNavPlus<TNavigateOptions extends NavigateOptions = Navigat
   }
 
   /** Whether `to` is active at the current location. */
-  function useIsActive(to: string, options: IsActiveOptions = {}): boolean {
-    return useLinkState(to, options).active;
+  function useIsActive(
+    to: string,
+    options: IsActiveOptions = {},
+    navigateOptions?: Omit<TNavigateOptions, 'replace' | 'state'>
+  ): boolean {
+    return useLinkState(to, options, navigateOptions).active;
   }
 
   const NavPlus = forwardRef<HTMLAnchorElement, NavPlusProps<TNavigateOptions>>(function NavPlus(
@@ -91,6 +99,7 @@ export function createNavPlus<TNavigateOptions extends NavigateOptions = Navigat
       onFocus,
       onBlur,
       'aria-current': ariaCurrent,
+      'data-testid': dataTestId,
       ...rest
     } = props;
 
@@ -103,7 +112,7 @@ export function createNavPlus<TNavigateOptions extends NavigateOptions = Navigat
       caseSensitive,
       customActiveUrl,
       isActiveFunc,
-    });
+    }, navigateOptions);
     const navigate = adapter.useNavigate();
     const adapterPrefetch = usePrefetchHandler();
 
@@ -112,6 +121,11 @@ export function createNavPlus<TNavigateOptions extends NavigateOptions = Navigat
     const prefetchTimer: Timer = useRef(undefined);
     const hoverNavigated = useRef(false);
     const prefetchedTo = useRef<string | null>(null);
+    const hovered = useRef(false);
+    const focused = useRef(false);
+    const isExternalLink = isExternal || external;
+    const prefetchOptions = normalizePrefetch(prefetch);
+    const runPrefetch = prefetchOptions.handler ?? adapterPrefetch;
 
     // Only hover work is cancelled on unmount. A click is a committed intent: a menu
     // that closes itself on click must not swallow a delayed navigation.
@@ -120,10 +134,18 @@ export function createNavPlus<TNavigateOptions extends NavigateOptions = Navigat
         clear(hoverTimer);
         clear(prefetchTimer);
       },
-      []
+      [to, resolved.href, disabled, isExternalLink, triggerEvent, navigationDelay, target, rest.download]
     );
 
-    const isExternalLink = isExternal || external;
+    useEffect(() => {
+      hoverNavigated.current = false;
+    }, [to, resolved.href, disabled, isExternalLink, triggerEvent]);
+
+    useEffect(() => () => clear(prefetchTimer), [
+      prefetchOptions.enabled,
+      prefetchOptions.delay,
+      prefetchOptions.handler,
+    ]);
 
     const go = (): void => {
       navigate(to, {
@@ -133,27 +155,39 @@ export function createNavPlus<TNavigateOptions extends NavigateOptions = Navigat
       } as TNavigateOptions);
     };
 
-    const schedule = (timer: Timer): void => {
+    const schedule = (timer: Timer, callback = go): void => {
       clear(timer);
-      if (navigationDelay > 0) timer.current = setTimeout(go, navigationDelay);
-      else go();
+      if (navigationDelay > 0) {
+        timer.current = setTimeout(() => {
+          timer.current = undefined;
+          callback();
+        }, navigationDelay);
+      } else callback();
     };
 
-    const prefetchOptions = normalizePrefetch(prefetch);
-    const runPrefetch = prefetchOptions.handler ?? adapterPrefetch;
-
     const schedulePrefetch = (): void => {
-      if (!prefetchOptions.enabled || prefetchedTo.current === to) return;
+      if (!prefetchOptions.enabled || prefetchedTo.current === resolved.href) return;
       if (!runPrefetch) {
         warnOnce(
           `NavPlus: the "${adapter.name}" adapter has no built-in prefetch. Pass prefetch={{ handler }} to enable it.`
         );
         return;
       }
-      clear(prefetchTimer);
+      if (prefetchTimer.current !== undefined) return;
       prefetchTimer.current = setTimeout(() => {
-        prefetchedTo.current = to;
-        runPrefetch(to);
+        prefetchTimer.current = undefined;
+        prefetchedTo.current = resolved.href;
+        const onFailure = (): void => {
+          if (prefetchedTo.current === resolved.href) prefetchedTo.current = null;
+          warnOnce(`NavPlus: prefetch failed for "${resolved.href}". It will retry on the next interaction.`);
+        };
+        try {
+          // Custom handlers often return import() promises, even though their return
+          // value is unused. A failed speculative load must not be an unhandled rejection.
+          Promise.resolve(runPrefetch(to)).catch(onFailure);
+        } catch {
+          onFailure();
+        }
       }, prefetchOptions.delay);
     };
 
@@ -166,7 +200,8 @@ export function createNavPlus<TNavigateOptions extends NavigateOptions = Navigat
       if (isExternalLink || !shouldHandleClick(event, { target, download: rest.download })) return;
 
       event.preventDefault();
-      // The pointer already started this navigation when it entered the link.
+      // Only a completed hover suppresses a click. Pending hover work becomes a
+      // committed click so leaving or unmounting cannot cancel the navigation.
       if (triggerEvent === 'hover' && hoverNavigated.current) return;
       clear(hoverTimer);
       schedule(clickTimer);
@@ -174,17 +209,26 @@ export function createNavPlus<TNavigateOptions extends NavigateOptions = Navigat
 
     const handleMouseEnter = (event: MouseEvent<HTMLAnchorElement>): void => {
       onMouseEnter?.(event);
-      if (disabled || isExternalLink) return;
+      hovered.current = true;
+      if (disabled || isExternalLink || event.defaultPrevented) return;
       schedulePrefetch();
-      if (triggerEvent === 'hover' && location.pathname !== resolved.pathname) {
-        hoverNavigated.current = true;
-        schedule(hoverTimer);
+      if (
+        triggerEvent === 'hover' &&
+        location.pathname !== resolved.pathname &&
+        shouldHandleClick(event, { target, download: rest.download }) &&
+        clickTimer.current === undefined
+      ) {
+        schedule(hoverTimer, () => {
+          hoverNavigated.current = true;
+          go();
+        });
       }
     };
 
     const handleMouseLeave = (event: MouseEvent<HTMLAnchorElement>): void => {
       onMouseLeave?.(event);
-      clear(prefetchTimer);
+      hovered.current = false;
+      if (!focused.current) clear(prefetchTimer);
       if (triggerEvent === 'hover') {
         clear(hoverTimer);
         hoverNavigated.current = false;
@@ -193,12 +237,14 @@ export function createNavPlus<TNavigateOptions extends NavigateOptions = Navigat
 
     const handleFocus = (event: FocusEvent<HTMLAnchorElement>): void => {
       onFocus?.(event);
-      if (!disabled && !isExternalLink) schedulePrefetch();
+      focused.current = true;
+      if (!disabled && !isExternalLink && !event.defaultPrevented) schedulePrefetch();
     };
 
     const handleBlur = (event: FocusEvent<HTMLAnchorElement>): void => {
       onBlur?.(event);
-      clear(prefetchTimer);
+      focused.current = false;
+      if (!hovered.current) clear(prefetchTimer);
     };
 
     const stateStyle = active ? activeStyle : inactiveStyle;
@@ -217,7 +263,7 @@ export function createNavPlus<TNavigateOptions extends NavigateOptions = Navigat
       'aria-current': ariaCurrent ?? (active ? ('page' as const) : undefined),
       'aria-disabled': disabled || undefined,
       'data-active': active ? 'true' : undefined,
-      'data-testid': testId,
+      'data-testid': testId ?? dataTestId,
     };
     const content = typeof children === 'function' ? children(active) : children;
 

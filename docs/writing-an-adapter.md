@@ -9,7 +9,7 @@ interface RouterAdapter<TNavigateOptions extends NavigateOptions = NavigateOptio
   name: string;
   useLocation(): NavLocation;
   useNavigate(): (to: string, options?: TNavigateOptions) => void;
-  useResolve?(to: string): ResolvedTo;
+  useResolve?(to: string, options?: Omit<TNavigateOptions, 'replace' | 'state'>): ResolvedTo;
   usePrefetch?(): ((to: string) => void) | undefined;
 }
 
@@ -32,7 +32,7 @@ interface ResolvedTo {
 | `name`        | yes      | Shown in the component's display name and in warnings. |
 | `useLocation` | yes      | Returns the current location and re-renders the link when it changes. Only `pathname` is used for matching. |
 | `useNavigate` | yes      | Returns a function that navigates. `to` is the string the user wrote, so let the router resolve it. `options` has `replace`, `state` and anything in `navigateOptions`. |
-| `useResolve`  | no       | Turns `to` into an `href` (add the basename or base here) and the pathname to match. Without it, `to` is used for both. |
+| `useResolve`  | no       | Turns `to` into an `href` (add the basename or base here) and the pathname to match. Receives `navigateOptions` so options such as relative resolution agree with navigation. Without it, `to` is used for both. |
 | `usePrefetch` | no       | Returns the router's preloader, or `undefined`. Without it, `prefetch` needs a `handler`. |
 
 Every member except `name` is a React hook. NavPlus calls them on every render in a fixed order, so an adapter is a constant: create it, and the component, once at module level.

@@ -42,7 +42,7 @@ export interface RouterAdapter<TNavigateOptions extends NavigateOptions = Naviga
   useLocation(): NavLocation;
   useNavigate(): (to: string, options?: TNavigateOptions) => void;
   /** Defaults to using `to` as the href and its pathname for matching. */
-  useResolve?(to: string): ResolvedTo;
+  useResolve?(to: string, options?: Omit<TNavigateOptions, 'replace' | 'state'>): ResolvedTo;
   /** The router's native route preloader, if it has one. */
   usePrefetch?(): ((to: string) => void) | undefined;
 }
@@ -101,6 +101,7 @@ export interface NavPlusOwnProps<TNavigateOptions extends NavigateOptions = Navi
   as?: ElementType;
   /** Rendered as `data-testid`. */
   testId?: string;
+  'data-testid'?: string;
 }
 
 export type NavPlusProps<TNavigateOptions extends NavigateOptions = NavigateOptions> =
