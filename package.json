@@ -1,6 +1,6 @@
 {
   "name": "react-navplus",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "A navigation link for React with one API across React Router, TanStack Router and wouter: segment-aware active state, prefetching, hover and delayed navigation",
   "type": "module",
   "main": "./dist/index.cjs",
