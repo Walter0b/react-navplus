@@ -54,7 +54,6 @@ export function createNavPlus<TNavigateOptions extends NavigateOptions = Navigat
     return { location, external, resolved, active };
   }
 
-  /** Whether `to` is active at the current location. */
   function useIsActive(
     to: string,
     options: IsActiveOptions = {},

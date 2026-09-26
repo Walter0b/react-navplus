@@ -19,3 +19,6 @@ coverage/
 # IDE
 .vscode/
 .idea/
+
+# local notes, not shipped
+.resources/

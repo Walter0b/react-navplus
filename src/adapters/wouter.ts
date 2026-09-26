@@ -1,8 +1,3 @@
-/**
- * @file wouter.ts
- * @description NavPlus for wouter v3.
- */
-
 import { useLocation, useRouter, useSearch } from 'wouter';
 import { createNavPlus } from '../core/createNavPlus';
 import { splitTo } from '../core/matchers';

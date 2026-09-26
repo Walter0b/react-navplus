@@ -1,6 +1,5 @@
 import { defineConfig } from 'tsup';
 
-// Peer dependencies (react and the routers) are external by default.
 export default defineConfig({
   entry: {
     index: 'src/index.ts',

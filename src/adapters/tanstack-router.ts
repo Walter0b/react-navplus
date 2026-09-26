@@ -1,8 +1,3 @@
-/**
- * @file tanstack-router.ts
- * @description NavPlus for TanStack Router.
- */
-
 import { useLocation, useRouter } from '@tanstack/react-router';
 import { createNavPlus } from '../core/createNavPlus';
 import { splitTo } from '../core/matchers';

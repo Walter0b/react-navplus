@@ -2,7 +2,6 @@ import { useSyncExternalStore } from 'react';
 import { splitTo } from '../../src/core/matchers';
 import type { NavigateOptions, RouterAdapter } from '../../src/core/types';
 
-/** A router in a variable: enough to observe what NavPlus asks of an adapter. */
 export const createFakeRouter = (
   initialPath = '/',
   extras: Partial<RouterAdapter> = {}

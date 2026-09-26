@@ -27,9 +27,9 @@ The core supports React 16.14 and later; your router may require a newer version
 
 ## When to use NavPlus
 
-Use NavPlus when you want the same active-state, delayed navigation and prefetch API across routers, or a reusable navigation component for your own router. React Router's own [NavLink](https://reactrouter.com/api/components/NavLink) already provides active styling and accessibility, and its framework mode supports prefetching. For an app that only needs those features, the router's own link may be enough.
+Use NavPlus for the same active-state, delayed navigation and prefetch API across routers, or for a reusable link on your own router.
 
-NavPlus accepts string destinations. It does not preserve TanStack Router's route-tree inference for typed route parameters and search objects; use TanStack's native `Link` when that is your priority.
+Destinations are strings. TanStack Router's native `Link` still wins if you need route-tree inference for params and search objects. React Router's own [NavLink](https://reactrouter.com/api/components/NavLink) is enough if you only need active styling in a React Router app.
 
 ## Quick start
 
@@ -208,10 +208,7 @@ The behaviour every adapter must share is one suite, [tests/adapters/conformance
 
 ## Contributing
 
-1. Fork the repo
-2. Create a feature branch (`git checkout -b feature/foo`)
-3. Add tests, and run `npm test`, `npm run typecheck` and `npm run lint`
-4. Open a pull request
+Open a pull request with tests. Run `npm test`, `npm run typecheck` and `npm run lint`.
 
 ## License
 

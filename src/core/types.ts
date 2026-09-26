@@ -10,7 +10,6 @@ import type { AnchorHTMLAttributes, CSSProperties, ElementType, ReactNode } from
  */
 export type MatchMode = 'exact' | 'startsWith' | 'includes' | 'pattern';
 
-/** A router's current location, reduced to the parts NavPlus needs. */
 export interface NavLocation {
   pathname: string;
   /** Includes the leading `?`, or `''`. */
@@ -38,7 +37,6 @@ export interface ResolvedTo {
  */
 export interface RouterAdapter<TNavigateOptions extends NavigateOptions = NavigateOptions> {
   name: string;
-  /** Subscribes the caller to location changes. */
   useLocation(): NavLocation;
   useNavigate(): (to: string, options?: TNavigateOptions) => void;
   /** Defaults to using `to` as the href and its pathname for matching. */
@@ -59,7 +57,6 @@ export interface PrefetchOptions {
 export interface IsActiveOptions {
   /** @default 'startsWith' */
   matchMode?: MatchMode;
-  /** Used when `matchMode` is `'pattern'`. */
   matchPattern?: RegExp;
   /** @default false */
   caseSensitive?: boolean;
@@ -75,7 +72,6 @@ export interface IsActiveOptions {
 export interface NavPlusOwnProps<TNavigateOptions extends NavigateOptions = NavigateOptions>
   extends IsActiveOptions {
   to: string;
-  /** Content, or a function of the active state. */
   children?: ReactNode | ((isActive: boolean) => ReactNode);
   className?: string;
   /** @default 'active' */
@@ -89,7 +85,6 @@ export interface NavPlusOwnProps<TNavigateOptions extends NavigateOptions = Navi
   isExternal?: boolean;
   replace?: boolean;
   state?: unknown;
-  /** Extra options for the router's own navigate function. */
   navigateOptions?: Omit<TNavigateOptions, 'replace' | 'state'>;
   /** Prefetch on hover and focus. `true` uses the defaults. */
   prefetch?: boolean | PrefetchOptions;
@@ -97,9 +92,7 @@ export interface NavPlusOwnProps<TNavigateOptions extends NavigateOptions = Navi
   triggerEvent?: 'click' | 'hover';
   /** Milliseconds to wait before navigating, e.g. to let an exit animation finish. */
   navigationDelay?: number;
-  /** Element or component to render instead of `<a>`. It receives `href`. */
   as?: ElementType;
-  /** Rendered as `data-testid`. */
   testId?: string;
   'data-testid'?: string;
 }

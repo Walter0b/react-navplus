@@ -10,7 +10,6 @@ const isDev = ((): boolean => {
 
 const warned = new Set<string>();
 
-/** Logs a development-only warning, once per message. */
 export const warnOnce = (message: string): void => {
   if (!isDev || warned.has(message)) return;
   warned.add(message);

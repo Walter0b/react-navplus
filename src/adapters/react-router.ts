@@ -1,8 +1,3 @@
-/**
- * @file react-router.ts
- * @description NavPlus for React Router v6 and v7 (declarative, data and framework modes).
- */
-
 import { useHref, useLocation, useNavigate, useResolvedPath } from 'react-router-dom';
 import type { NavigateOptions as RouterNavigateOptions } from 'react-router-dom';
 import { createNavPlus } from '../core/createNavPlus';
@@ -17,7 +12,6 @@ export const reactRouterAdapter: RouterAdapter<RouterNavigateOptions> = {
   useLocation,
   useNavigate,
   useResolve(to, options) {
-    // These resolve relative `to` values against the current route and add the basename.
     const href = useHref(to, { relative: options?.relative });
     const { pathname } = useResolvedPath(to, { relative: options?.relative });
     return { href, pathname };
